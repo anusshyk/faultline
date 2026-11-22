@@ -7,16 +7,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
-/* PALETTE: maroon only (owner's choice)
+/* PALETTE: maroon background and UI, green charts (owner's choice)
    VOICE: a field researcher's atlas of disclosed bugs, calm and exact
    IDEA: a geological survey sheet; each vulnerability class is a stratum, each weakness a seam
    PICTURE: the strata map, one band per class, seams sized by report count, clickable
    COLOUR and TYPE: maroon only, seams from rose to deep maroon; Archivo + JetBrains Mono for figures
    LAYOUT: sticky top bar with search, hero title and stats over the full-width strata, then hash-routed views */
-:root{color-scheme:light dark;
---bg:light-dark(#f8f1ef,#1a0c10);--panel:light-dark(#ffffff,#25131a);--line:light-dark(#e7d3d4,#43242d);
---ink:light-dark(#1e0f13,#f4e9e6);--mute:light-dark(#6d5257,#bb9fa4);--acc:light-dark(#8b1c3d,#e8607c);--sup:light-dark(#b8566f,#f0a3b3)}
-:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+:root{color-scheme:dark;
+--bg:#4a0f20;--panel:#5c1a2c;--line:#7a3346;
+--ink:#fff3f5;--mute:#ecc3cc;--acc:#ffb0c0;--sup:#ff8fa8}
 *{box-sizing:border-box;min-width:0}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Archivo,system-ui,sans-serif;overflow-x:clip}
 a{color:inherit}
@@ -268,7 +267,7 @@ let D=null,R=[],classes=[],weak=[],progs=[],colors=[];
 const st={c:-1,w:-1,p:-1,q:'',sort:'b',shown:100};
 const views=['map','browse','classes','programs','cves','platforms','top','about'];
 
-function hue(i,n){const k=i/(n-1);return `color-mix(in oklab, #e0758f ${Math.round((1-k)*100)}%, #5c0f27)`}
+function hue(i,n){const k=i/(n-1);return `color-mix(in oklab, #9ff0bf ${Math.round((1-k)*100)}%, #2f8f5c)`}
 
 fetch('data.json').then(r=>r.json()).then(j=>{
  const meta=j[0];classes=meta.classes;weak=meta.weaknesses;progs=meta.programs;
@@ -351,7 +350,7 @@ function startSeis(){
   ctx.strokeStyle=line;ctx.lineWidth=1;ctx.beginPath();for(let y=H*0.2;y<H;y+=H*0.21){ctx.moveTo(0,y);ctx.lineTo(W,y)}ctx.stroke();
   const n=Math.ceil(W/step)+2,start=Math.floor(off/step),fx=-(off%step);
   ctx.lineWidth=1.6;ctx.lineJoin='round';
-  const g=ctx.createLinearGradient(0,0,W,0);g.addColorStop(0,sup);g.addColorStop(1,acc);ctx.strokeStyle=g;
+  const g=ctx.createLinearGradient(0,0,W,0);g.addColorStop(0,'#3fae74');g.addColorStop(1,'#9ff0bf');ctx.strokeStyle=g;
   ctx.beginPath();
   let top=null;
   for(let i=0;i<n;i++){const r=paid[(((start+i)%paid.length)+paid.length)%paid.length],h=(Math.log10(r.b+1)/mx)*(H*0.55),x=fx+i*step,dir=(start+i)%2?1:-0.45;
@@ -359,7 +358,7 @@ function startSeis(){
    if(x>W*0.7&&x<W-8&&(!top||r.b>top.r.b))top={r,x,y}}
   ctx.stroke();
   // scan head
-  ctx.fillStyle=acc;ctx.beginPath();ctx.arc(W-6,mid,3.5,0,7);ctx.fill();
+  ctx.fillStyle='#9ff0bf';ctx.beginPath();ctx.arc(W-6,mid,3.5,0,7);ctx.fill();
   if(top&&top.r.b>=1000){ctx.fillStyle=ink;ctx.font='600 12px "JetBrains Mono",monospace';
    const lbl=usd(top.r.b)+' · '+progs[top.r.p];const tw=Math.min(ctx.measureText(lbl).width,W-20);
    ctx.fillText(lbl,Math.max(8,Math.min(top.x-tw/2,W-tw-10)),Math.max(14,top.y-8),W-20)}
@@ -370,7 +369,7 @@ function startSeis(){
 }
 
 // platforms
-const PCOL={HackerOne:'#e0758f',Bugcrowd:'#c2405f',Intigriti:'#962745',YesWeHack:'#6e1430'};
+const PCOL={HackerOne:'#ffc2cf',Bugcrowd:'#ff8fa8',Intigriti:'#e5607f',YesWeHack:'#c23a5c'};
 let PL=null,plOn=new Set(Object.keys(PCOL)),plShown=40,plUpd='';
 const CUR={USD:'$',EUR:'€',GBP:'£'};
 const money=(v,c)=>(CUR[c]||c+' ')+Math.round(v).toLocaleString('en-US');
@@ -517,7 +516,7 @@ route();
  const N=9,sparks=Array.from({length:26},()=>({x:Math.random(),y:Math.random(),v:.00004+Math.random()*.00008,r:1+Math.random()*1.8}));
  const still=matchMedia('(prefers-reduced-motion: reduce)').matches;
  function draw(t){
-  const acc=col('--acc'),sup=col('--sup'),dark=matchMedia('(prefers-color-scheme: dark)').matches&&document.documentElement.dataset.theme!=='light'||document.documentElement.dataset.theme==='dark';
+  const acc=col('--acc'),sup=col('--sup'),dark=true;
   const a=dark?0.26:0.2;
   ctx.clearRect(0,0,W,H);
   for(let i=0;i<N;i++){
