@@ -7,15 +7,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
-/* PALETTE: maroon lead, green support (owner's choice)
+/* PALETTE: maroon only (owner's choice)
    VOICE: a field researcher's atlas of disclosed bugs, calm and exact
    IDEA: a geological survey sheet; each vulnerability class is a stratum, each weakness a seam
    PICTURE: the strata map, one band per class, seams sized by report count, clickable
-   COLOUR and TYPE: maroon ground and accent, green support, seams in green shades then maroon shades; Archivo + JetBrains Mono for figures
+   COLOUR and TYPE: maroon only, seams from rose to deep maroon; Archivo + JetBrains Mono for figures
    LAYOUT: sticky top bar with search, hero title and stats over the full-width strata, then hash-routed views */
 :root{color-scheme:light dark;
 --bg:light-dark(#f8f1ef,#1a0c10);--panel:light-dark(#ffffff,#25131a);--line:light-dark(#e7d3d4,#43242d);
---ink:light-dark(#1e0f13,#f4e9e6);--mute:light-dark(#6d5257,#bb9fa4);--acc:light-dark(#8b1c3d,#e8607c);--sup:light-dark(#1d7a4c,#4cc487)}
+--ink:light-dark(#1e0f13,#f4e9e6);--mute:light-dark(#6d5257,#bb9fa4);--acc:light-dark(#8b1c3d,#e8607c);--sup:light-dark(#b8566f,#f0a3b3)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;min-width:0}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Archivo,system-ui,sans-serif;overflow-x:clip}
@@ -123,8 +123,8 @@ td button.lnk:hover{color:var(--acc);text-decoration:underline}
 .tg li span:first-child{color:var(--mute)}
 .tg code{font-family:"JetBrains Mono",monospace}
 .live{display:inline-flex;align-items:center;gap:7px}
-.live i{width:8px;height:8px;border-radius:50%;background:#2fbf71;box-shadow:0 0 0 0 #2fbf7188;animation:ping 2s infinite}
-@keyframes ping{70%{box-shadow:0 0 0 8px #2fbf7100}100%{box-shadow:0 0 0 0 #2fbf7100}}
+.live i{width:8px;height:8px;border-radius:50%;background:#d24a6c;box-shadow:0 0 0 0 #d24a6c88;animation:ping 2s infinite}
+@keyframes ping{70%{box-shadow:0 0 0 8px #d24a6c00}100%{box-shadow:0 0 0 0 #d24a6c00}}
 /* motion */
 .view.on{animation:viewIn .45s cubic-bezier(.2,.7,.2,1)}
 @keyframes viewIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
@@ -268,7 +268,7 @@ let D=null,R=[],classes=[],weak=[],progs=[],colors=[];
 const st={c:-1,w:-1,p:-1,q:'',sort:'b',shown:100};
 const views=['map','browse','classes','programs','cves','platforms','top','about'];
 
-function hue(i,n){const h=Math.ceil(n/2),g=i<h,k=g?i/(h-1):(i-h)/Math.max(1,n-h-1);return g?`color-mix(in oklab, #36b06e ${Math.round((1-k)*100)}%, #1c5e3d)`:`color-mix(in oklab, #cf4a72 ${Math.round((1-k)*100)}%, #6e1430)`}
+function hue(i,n){const k=i/(n-1);return `color-mix(in oklab, #e0758f ${Math.round((1-k)*100)}%, #5c0f27)`}
 
 fetch('data.json').then(r=>r.json()).then(j=>{
  const meta=j[0];classes=meta.classes;weak=meta.weaknesses;progs=meta.programs;
@@ -370,7 +370,7 @@ function startSeis(){
 }
 
 // platforms
-const PCOL={HackerOne:'#3fae74',Bugcrowd:'#d98a3a',Intigriti:'#8f6be0',YesWeHack:'#b8335a'};
+const PCOL={HackerOne:'#e0758f',Bugcrowd:'#c2405f',Intigriti:'#962745',YesWeHack:'#6e1430'};
 let PL=null,plOn=new Set(Object.keys(PCOL)),plShown=40,plUpd='';
 const CUR={USD:'$',EUR:'€',GBP:'£'};
 const money=(v,c)=>(CUR[c]||c+' ')+Math.round(v).toLocaleString('en-US');
