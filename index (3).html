@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Faultline bug bounty map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* PALETTE: maroon lead, green support (owner's choice)
+   VOICE: a field researcher's atlas of disclosed bugs, calm and exact
+   IDEA: a geological survey sheet; each vulnerability class is a stratum, each weakness a seam
+   PICTURE: the strata map, one band per class, seams sized by report count, clickable
+   COLOUR and TYPE: maroon ground and accent, green support, seams in green shades then maroon shades; Archivo + JetBrains Mono for figures
+   LAYOUT: sticky top bar with search, hero title and stats over the full-width strata, then hash-routed views */
+:root{color-scheme:light dark;
+--bg:light-dark(#f8f1ef,#1a0c10);--panel:light-dark(#ffffff,#25131a);--line:light-dark(#e7d3d4,#43242d);
+--ink:light-dark(#1e0f13,#f4e9e6);--mute:light-dark(#6d5257,#bb9fa4);--acc:light-dark(#8b1c3d,#e8607c);--sup:light-dark(#1d7a4c,#4cc487)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Archivo,system-ui,sans-serif;overflow-x:clip}
+a{color:inherit}
+.num,.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.band{padding:clamp(28px,4vw,64px) max(5vw,16px)}
+.wrap{max-width:1240px;margin:0 auto}
+header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.bar{max-width:1240px;margin:0 auto;padding:10px max(5vw,16px);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.logo{font-weight:800;font-size:20px;text-decoration:none;display:flex;gap:8px;align-items:center;margin-inline-end:6px}
+.logo svg{width:26px;height:26px}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav a{text-decoration:none;padding:10px 12px;border-radius:8px;color:var(--mute);font-weight:500;min-height:44px;display:flex;align-items:center}
+nav a:hover{color:var(--ink)}nav a.on{color:var(--ink);background:var(--panel)}
+.search{flex:1 1 220px;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:0 10px}
+.search input{flex:1;border:0;background:none;color:var(--ink);font:16px Archivo,sans-serif;padding:11px 0;outline:none}
+.search:focus-within{border-color:var(--acc)}
+kbd{font:12px "JetBrains Mono",monospace;border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--mute)}
+h1{font-size:clamp(34px,5vw,52px);line-height:1.05;margin:0 0 14px;text-wrap:balance;font-weight:800;max-width:17ch}
+h2{font-size:clamp(26px,3vw,32px);line-height:1.1;margin:0 0 10px;text-wrap:balance}
+.lede{font-size:17px;color:var(--mute);max-width:62ch;margin:0}
+.stats{display:flex;flex-wrap:wrap;gap:10px 32px;margin:26px 0 8px}
+.stats div{display:flex;flex-direction:column}
+.stats b{font:600 clamp(22px,3vw,30px) "JetBrains Mono",monospace;white-space:nowrap}
+.stats span{color:var(--mute);font-size:14px}
+.stats .money b{color:var(--acc)}
+.strata{margin-top:26px;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:8px 0}
+.stratum{display:grid;grid-template-columns:minmax(0,15em) minmax(0,1fr) 5.5em;gap:12px;align-items:center;padding:5px 14px}
+.stratum:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.stratum .nm{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:0;color:var(--ink);text-align:start;cursor:pointer;padding:6px 0;font-family:inherit}
+.stratum .ct{text-align:right;font-size:13px;color:var(--mute)}
+.seams{display:flex;height:30px;border-radius:5px;overflow:hidden;gap:2px}
+.seam{border:0;padding:0;cursor:pointer;background:var(--c);min-width:3px;transition:filter .15s,transform .15s}
+.seam:hover,.seam:focus-visible{filter:brightness(1.25);outline:2px solid var(--ink);outline-offset:-2px}
+.tip{position:fixed;pointer-events:none;z-index:9;background:var(--ink);color:var(--bg);font-size:13px;padding:7px 10px;border-radius:8px;max-width:280px;display:none}
+.note{font-size:13px;color:var(--mute);margin:10px 2px 0}
+.view{display:none}.view.on{display:block}
+.filters{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}
+select,.btn{font:15px Archivo,sans-serif;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 12px;min-height:44px;max-width:100%}
+.btn{cursor:pointer;font-weight:500}.btn:hover{border-color:var(--acc)}
+.btn.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+select:focus-visible,.btn:focus-visible,a:focus-visible,button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:6px 8px 6px 12px;font-size:14px}
+.chip button{border:0;background:none;color:var(--mute);cursor:pointer;font-size:16px;width:26px;height:26px;border-radius:50%}
+.chip button:hover{color:var(--acc)}
+.count{color:var(--mute);font-size:14px;margin:0 0 8px}
+.list{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.rep{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 18px;padding:14px 4px;border-bottom:1px solid var(--line)}
+.rep a.t{font-weight:500;text-decoration:none;font-size:16px;overflow-wrap:anywhere}
+.rep>div,.cve li a,.meta button{overflow-wrap:anywhere}
+td button.lnk{overflow-wrap:anywhere}
+.rep a.t:hover{color:var(--acc);text-decoration:underline}
+.meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--mute)}
+.meta button{background:none;border:0;padding:0;color:inherit;font:inherit;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+.meta button:hover{color:var(--ink)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--c);margin-inline-end:5px;vertical-align:baseline}
+.amt{text-align:right;white-space:nowrap;font-size:15px}
+.amt .b{color:var(--acc);font-weight:600}.amt .u{display:block;color:var(--mute);font-size:12px}
+.more{margin:18px 0}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{padding:11px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:13px;color:var(--mute);font-weight:500;cursor:pointer;white-space:nowrap}
+td.r,th.r{text-align:right}
+td button.lnk{background:none;border:0;color:var(--ink);font:inherit;cursor:pointer;text-align:left;padding:0;font-weight:500}
+td button.lnk:hover{color:var(--acc);text-decoration:underline}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:14px;margin-top:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card h3{margin:0 0 4px;font-size:17px;display:flex;align-items:center;gap:8px}
+.card p{margin:0 0 10px;color:var(--mute);font-size:14px}
+.wk{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:5px 0;border-top:1px solid var(--line)}
+.wk button{background:none;border:0;color:var(--ink);font:inherit;text-align:left;cursor:pointer;padding:4px 0}
+.wk button:hover{color:var(--acc)}
+.cve{border-top:1px solid var(--line);padding:16px 4px;display:grid;grid-template-columns:minmax(0,13em) minmax(0,1fr);gap:6px 20px}
+.cve h3{margin:0;font:600 16px "JetBrains Mono",monospace}
+.cve h3 a{text-decoration:none}.cve h3 a:hover{color:var(--acc);text-decoration:underline}
+.cve .sub{font-size:13px;color:var(--mute)}
+.cve ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.cve li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 14px}
+.cve li a{text-decoration:none}.cve li a:hover{color:var(--acc);text-decoration:underline}
+.cve li .meta{grid-column:1}
+.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:clamp(20px,4vw,56px);align-items:center}
+.seis{margin:0;position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;height:300px}
+.seis canvas{position:absolute;inset:0 0 34px 0;width:100%;height:calc(100% - 34px)}
+.seis figcaption{position:absolute;left:14px;right:14px;bottom:9px;font-size:13px;color:var(--mute)}
+.pcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:12px;margin:22px 0 6px}
+.pc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;cursor:pointer;text-align:left;color:var(--ink);font:inherit;border-top:4px solid var(--pc);transition:transform .2s,box-shadow .2s;min-height:44px}
+.pc:hover{transform:translateY(-3px);box-shadow:0 10px 24px -14px var(--pc)}
+.pc[aria-pressed=false]{opacity:.45}
+.pc b{display:block;font:600 26px "JetBrains Mono",monospace}
+.pc span{font-size:14px;color:var(--mute)}
+.tog{display:flex;align-items:center;gap:8px;font-size:15px;min-height:44px;cursor:pointer}
+.tog input{width:20px;height:20px;accent-color:var(--acc)}
+.prog{border-top:1px solid var(--line);padding:14px 4px}
+.prog .top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;align-items:baseline}
+.prog a.n{font-weight:600;text-decoration:none;font-size:16px;overflow-wrap:anywhere}
+.prog a.n:hover{color:var(--acc);text-decoration:underline}
+.pf{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:color-mix(in srgb,var(--pc) 18%,transparent);color:var(--ink);border:1px solid color-mix(in srgb,var(--pc) 50%,transparent)}
+.pay{white-space:nowrap;text-align:right;font-size:15px}.pay .b{color:var(--acc);font-weight:600}
+.prog details{margin-top:6px;font-size:14px}
+.prog summary{cursor:pointer;color:var(--mute);padding:6px 0;min-height:32px}
+.prog summary:hover{color:var(--ink)}
+.tg{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:4px;max-height:280px;overflow:auto;border-left:2px solid var(--line);padding-left:12px}
+.tg li{display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:10px;font-size:13px}
+.tg li span:first-child{color:var(--mute)}
+.tg code{font-family:"JetBrains Mono",monospace}
+.live{display:inline-flex;align-items:center;gap:7px}
+.live i{width:8px;height:8px;border-radius:50%;background:#2fbf71;box-shadow:0 0 0 0 #2fbf7188;animation:ping 2s infinite}
+@keyframes ping{70%{box-shadow:0 0 0 8px #2fbf7100}100%{box-shadow:0 0 0 0 #2fbf7100}}
+/* motion */
+.view.on{animation:viewIn .45s cubic-bezier(.2,.7,.2,1)}
+@keyframes viewIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.seams{transform-origin:left center}
+.grow .seams{animation:grow .9s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i)*55ms)}
+@keyframes grow{from{transform:scaleX(0);opacity:.3}to{transform:none;opacity:1}}
+.seam:hover{transform:scaleY(1.18)}
+.fade>*{animation:viewIn .5s cubic-bezier(.2,.7,.2,1) both}
+.fade>*:nth-child(2){animation-delay:40ms}.fade>*:nth-child(3){animation-delay:80ms}.fade>*:nth-child(4){animation-delay:120ms}.fade>*:nth-child(5){animation-delay:160ms}.fade>*:nth-child(6){animation-delay:200ms}.fade>*:nth-child(7){animation-delay:240ms}.fade>*:nth-child(8){animation-delay:280ms}
+.logo path{stroke-dasharray:40;animation:crack 1.2s .2s cubic-bezier(.2,.7,.2,1) both}
+@keyframes crack{from{stroke-dashoffset:40}to{stroke-dashoffset:0}}
+.card,.rep,.cve{transition:background .2s}
+.card:hover{border-color:color-mix(in srgb,var(--acc) 40%,var(--line))}
+#bg{position:fixed;inset:0;width:100vw;height:100vh;z-index:-1;pointer-events:none}
+main,footer{position:relative}
+.by{color:var(--ink);font-weight:600}
+.prose{max-width:68ch}.prose p{margin:0 0 14px}
+footer{border-top:1px solid var(--line);color:var(--mute);font-size:14px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between}
+.empty{padding:40px 0;color:var(--mute)}
+.load{color:var(--mute);padding:30px 0}
+pre,.scroll{overflow-x:auto}code{overflow-wrap:anywhere}html{scroll-padding-top:72px}
+@media(max-width:600px){
+ .stratum{grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:8px 12px}
+ .stratum .seams{grid-column:1/-1;order:3;height:24px}
+ .rep{grid-template-columns:minmax(0,1fr)}.amt{text-align:left}.amt .u{display:inline;margin-inline-start:8px}
+ table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;white-space:normal;color:var(--mute)}.stack td:empty{display:none}
+ nav a{padding:10px 9px}
+ header{position:static}
+}
+@media(max-width:600px){.cve{grid-template-columns:minmax(0,1fr)}.prog .top{grid-template-columns:minmax(0,1fr)}.pay{text-align:left}.tg li{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:900px){.hero{grid-template-columns:minmax(0,1fr)}.seis{height:200px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+<script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script>
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+<header><div class="bar">
+ <a class="logo" href="#map"><svg viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="3" width="24" height="5" rx="1.5" fill="var(--sup)"/><rect x="1" y="10.5" width="24" height="5" rx="1.5" fill="var(--mute)"/><rect x="1" y="18" width="24" height="5" rx="1.5" fill="var(--acc)"/><path d="M15 1 L11 13 L15 13 L10 25" stroke="var(--bg)" stroke-width="2.2" fill="none"/></svg>Faultline</a>
+ <nav id="nav"><a href="#map">Map</a><a href="#browse">Reports</a><a href="#classes">Classes</a><a href="#programs">Programs</a><a href="#cves">CVEs</a><a href="#platforms">Platforms</a><a href="#top">Top bounties</a><a href="#about">About</a></nav>
+ <label class="search"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M11 11l4 4" stroke="currentColor" stroke-width="1.6"/></svg><input id="q" type="search" placeholder="Search titles, programs, weaknesses" aria-label="Search reports"><kbd>/</kbd></label>
+</div></header>
+
+<main>
+<section class="view band" id="v-map"><div class="wrap">
+ <div class="hero"><div>
+ <h1>Every disclosed bug bounty report, laid out by how it broke.</h1>
+ <p class="lede">Publicly disclosed HackerOne reports grouped into classes and weaknesses, plus live programs from four bounty platforms. Pick a seam on the map to read the reports inside it, or search the whole set.</p>
+ <div class="stats" id="stats"><div><b>…</b><span>loading reports</span></div></div>
+ </div>
+ <figure class="seis"><canvas id="seis" aria-label="Scrolling trace of paid bounties"></canvas><figcaption>Each spike is a paid report, in order of report number. Taller spikes paid more.</figcaption></figure>
+ </div>
+ <div class="strata" id="strata"><div class="load band">Loading the map…</div></div>
+ <p class="note">Each band is a vulnerability class. Each block in it is one weakness, as wide as its share of that class's reports. Bands are sorted by report count.</p>
+</div></section>
+
+<section class="view band" id="v-browse"><div class="wrap">
+ <h2>Reports</h2>
+ <div class="filters">
+  <select id="fClass" aria-label="Class"></select>
+  <select id="fWeak" aria-label="Weakness"></select>
+  <select id="fProg" aria-label="Program"></select>
+  <select id="fSort" aria-label="Sort"><option value="b">Highest bounty</option><option value="u">Most upvoted</option><option value="n">Newest first</option><option value="o">Oldest first</option></select>
+  <button class="btn" id="fReset">Clear filters</button>
+ </div>
+ <div class="chips" id="chips"></div>
+ <p class="count" id="count"></p>
+ <ul class="fade list" id="list"></ul>
+ <div class="more"><button class="btn" id="moreBtn" hidden>Show 100 more</button></div>
+</div></section>
+
+<section class="view band" id="v-classes"><div class="wrap">
+ <h2>Classes and weaknesses</h2>
+ <p class="lede">All 18 classes with the weaknesses inside them, ranked by report count. Pick any weakness to see its reports.</p>
+ <div class="fade grid2" id="classGrid"></div>
+</div></section>
+
+<section class="view band" id="v-programs"><div class="wrap">
+ <h2>Programs</h2>
+ <p class="lede" id="progLede"></p>
+ <div class="filters"><select id="pSort" aria-label="Sort programs"><option value="n">Most reports</option><option value="b">Most paid</option><option value="a">A to Z</option></select></div>
+ <table class="stack"><thead><tr><th>Program</th><th class="r">Reports</th><th class="r">Bounties paid</th><th>Most common class</th></tr></thead><tbody id="progBody"></tbody></table>
+ <div class="more"><button class="btn" id="progMore" hidden>Show all programs</button></div>
+</div></section>
+
+<section class="view band" id="v-cves"><div class="wrap">
+ <h2>CVEs</h2>
+ <p class="lede" id="cveLede"></p>
+ <div class="filters">
+  <label class="search" style="flex:0 1 320px"><input id="cveQ" type="search" placeholder="Filter by CVE ID or keyword" aria-label="Filter CVEs"></label>
+  <select id="cveYear" aria-label="CVE year"></select>
+  <select id="cveSort" aria-label="Sort CVEs"><option value="n">Newest CVE first</option><option value="r">Most reports</option><option value="b">Highest bounty</option></select>
+ </div>
+ <p class="count" id="cveCount"></p>
+ <div class="fade" id="cveList"></div>
+ <div class="more"><button class="btn" id="cveMore" hidden>Show 50 more</button></div>
+</div></section>
+
+<section class="view band" id="v-platforms"><div class="wrap">
+ <h2>Live programs on four platforms</h2>
+ <p class="lede" id="platLede">Loading programs…</p>
+ <div class="pcards" id="pcards"></div>
+ <div class="filters">
+  <label class="search" style="flex:1 1 260px"><input id="plQ" type="search" placeholder="Search programs or in-scope targets" aria-label="Search programs"></label>
+  <select id="plSort" aria-label="Sort programs"><option value="m">Highest max payout</option><option value="t">Most targets</option><option value="a">A to Z</option></select>
+  <label class="tog"><input type="checkbox" id="plPaid"> Pays bounties only</label>
+ </div>
+ <p class="count" id="plCount"></p>
+ <div class="fade" id="plList"></div>
+ <div class="more"><button class="btn" id="plMore" hidden>Show 40 more</button></div>
+</div></section>
+
+<section class="view band" id="v-top"><div class="wrap">
+ <h2>Largest bounties</h2>
+ <p class="lede">The 50 highest payouts in the set, with the class each bug belongs to.</p>
+ <ul class="list fade" id="topList" style="margin-top:18px"></ul>
+</div></section>
+
+<section class="view band" id="v-about"><div class="wrap prose">
+ <h2>About this map</h2>
+ <p>Faultline indexes publicly disclosed reports from HackerOne bug bounty and vulnerability disclosure programs. For every report it keeps the title, the program, the weakness the reporter or triager tagged, the bounty paid and the number of upvotes. Every title links to the full write-up on HackerOne.</p>
+ <p>The report list comes from the open <a href="https://github.com/reddelexc/hackerone-reports">hackerone-reports</a> dataset on GitHub. HackerOne tags reports with about 215 different weakness names, many close to CWE entries. Faultline sorts them into 18 broader classes so related bugs sit together. Reports with no weakness tag are grouped as Untagged.</p>
+ <p>The CVE page lists every CVE ID that appears in a report title, linked to its entry in the US National Vulnerability Database. Reports that don't name their CVE in the title aren't on that page.</p>
+ <p>Bounty totals count only amounts disclosed in public reports. Many programs pay bounties privately, so the real totals are higher.</p>
+ <p>The Platforms page lists public programs on HackerOne, Bugcrowd, Intigriti and YesWeHack, with payout ranges and in-scope targets, from the open <a href="https://github.com/arkadiyt/bounty-targets-data">bounty-targets-data</a> project, which refreshes from the platforms every 30 minutes. Private, invite-only programs aren't included. Other platforms don't publish disclosed reports openly, so the report map covers HackerOne only.</p>
+ <p id="aboutStats"></p>
+</div></section>
+</main>
+
+<footer class="band"><div class="wrap"><span>Faultline: an index of public HackerOne disclosures. Made by <b class="by">Muhammad Anas Shaikh</b>.</span><span>Data: <a href="https://github.com/reddelexc/hackerone-reports">reddelexc/hackerone-reports</a> and <a href="https://github.com/arkadiyt/bounty-targets-data">arkadiyt/bounty-targets-data</a></span></div></footer>
+<div class="tip" id="tip"></div>
+
+<script>
+{
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>n.toLocaleString('en-US');
+const usd=n=>'$'+Math.round(n).toLocaleString('en-US');
+let D=null,R=[],classes=[],weak=[],progs=[],colors=[];
+const st={c:-1,w:-1,p:-1,q:'',sort:'b',shown:100};
+const views=['map','browse','classes','programs','cves','platforms','top','about'];
+
+function hue(i,n){const h=Math.ceil(n/2),g=i<h,k=g?i/(h-1):(i-h)/Math.max(1,n-h-1);return g?`color-mix(in oklab, #36b06e ${Math.round((1-k)*100)}%, #1c5e3d)`:`color-mix(in oklab, #cf4a72 ${Math.round((1-k)*100)}%, #6e1430)`}
+
+fetch('data.json').then(r=>r.json()).then(j=>{
+ const meta=j[0];classes=meta.classes;weak=meta.weaknesses;progs=meta.programs;
+ R=j.slice(1).map(r=>({id:r[0],t:r[1],p:r[2],w:r[3],c:weak[r[3]][1],b:r[4],u:r[5],s:(r[1]+' '+progs[r[2]]+' '+weak[r[3]][0]).toLowerCase()}));
+ init();
+}).catch(()=>{$('#strata').innerHTML='<div class="empty band">The report data could not be loaded. Reload the page to try again.</div>'});
+
+function init(){
+ // aggregate
+ const cc=classes.map((n,i)=>({i,n,count:0,b:0,ws:new Map()}));
+ for(const r of R){const k=cc[r.c];k.count++;k.b+=r.b;k.ws.set(r.w,(k.ws.get(r.w)||0)+1)}
+ cc.sort((a,b)=>b.count-a.count);
+ cc.forEach((k,rank)=>colors[k.i]=hue(rank,cc.length));
+ window._cc=cc;
+ const total=R.reduce((s,r)=>s+r.b,0),wn=new Set(R.map(r=>r.w)).size;
+ $('#stats').innerHTML=[[R.length,'reports'],[classes.length,'classes'],[wn,'weaknesses'],[progs.length,'programs'],[total,'in disclosed bounties','money']]
+  .map(([v,l,c])=>`<div class="${c||''}"><b data-v="${v}" data-m="${c?1:0}">${c?usd(v):fmt(v)}</b><span>${l}</span></div>`).join('');
+ countUp(document.querySelectorAll('#stats b'));
+ $('#aboutStats').textContent=`The current set holds ${fmt(R.length)} reports from ${fmt(progs.length)} programs, with ${usd(total)} in disclosed bounties.`;
+ // strata
+ $('#strata').innerHTML=cc.map((k,ki)=>{
+  const ws=[...k.ws].sort((a,b)=>b[1]-a[1]);
+  return `<div class="stratum" style="--i:${ki}"><button class="nm" data-c="${k.i}" title="${esc(k.n)}"><span class="dot" style="--c:${colors[k.i]}"></span>${esc(k.n)}</button>
+  <div class="seams">${ws.map(([w,n],j)=>`<button class="seam" data-w="${w}" data-n="${n}" aria-label="${esc(weak[w][0]||'Untagged')}: ${n} reports" style="flex:${n} 1 0;--c:${colors[k.i]};filter:brightness(${1-j*.07>0.45?1-j*.07:0.45})"></button>`).join('')}</div>
+  <span class="ct num">${fmt(k.count)}</span></div>`}).join('');
+ $('#strata').classList.add('grow');
+ startSeis();
+ // class cards
+ $('#classGrid').innerHTML=cc.map(k=>{
+  const ws=[...k.ws].sort((a,b)=>b[1]-a[1]);
+  return `<div class="card"><h3><span class="dot" style="--c:${colors[k.i]}"></span>${esc(k.n)}</h3><p><span class="num">${fmt(k.count)}</span> reports · <span class="num">${usd(k.b)}</span> paid</p>
+  ${ws.slice(0,8).map(([w,n])=>`<div class="wk"><button data-w="${w}">${esc(weak[w][0]||'No weakness tagged')}</button><span class="num">${fmt(n)}</span></div>`).join('')}
+  ${ws.length>8?`<div class="wk"><button data-c="${k.i}">All ${ws.length} weaknesses in this class</button><span></span></div>`:''}</div>`}).join('');
+ // selects
+ $('#fClass').innerHTML='<option value="-1">All classes</option>'+cc.map(k=>`<option value="${k.i}">${esc(k.n)} (${fmt(k.count)})</option>`).join('');
+ fillWeak();
+ const pc=new Map();for(const r of R)pc.set(r.p,(pc.get(r.p)||0)+1);
+ $('#fProg').innerHTML='<option value="-1">All programs</option>'+[...pc].sort((a,b)=>progs[a[0]].localeCompare(progs[b[0]])).map(([p,n])=>`<option value="${p}">${esc(progs[p])} (${fmt(n)})</option>`).join('');
+ // programs
+ const P=progs.map((n,i)=>({i,n,count:0,b:0,cl:new Map()}));
+ for(const r of R){const p=P[r.p];p.count++;p.b+=r.b;p.cl.set(r.c,(p.cl.get(r.c)||0)+1)}
+ window._P=P;
+ $('#progLede').textContent=`${fmt(P.length)} programs have disclosed reports in the set. Pick one to see its reports.`;
+ renderProgs();
+ // top
+ // cves
+ const CV=new Map();
+ for(const r of R){const ids=new Set((r.t.match(/CVE-\d{4}-\d{4,7}/gi)||[]).map(x=>x.toUpperCase()));for(const id of ids){if(!CV.has(id))CV.set(id,{id,y:+id.slice(4,8),n:+id.slice(9),rs:[],b:0});const c=CV.get(id);c.rs.push(r);c.b+=r.b}}
+ window._CV=[...CV.values()];
+ const nrep=new Set(_CV.flatMap(c=>c.rs.map(r=>r.id))).size;
+ $('#cveLede').textContent=`${fmt(_CV.length)} CVEs named in the titles of ${fmt(nrep)} reports. Reports that don't name a CVE ID in their title aren't listed here.`;
+ const ys=[...new Set(_CV.map(c=>c.y))].sort((a,b)=>b-a);
+ $('#cveYear').innerHTML='<option value="0">All years</option>'+ys.map(y=>`<option value="${y}">${y} (${_CV.filter(c=>c.y===y).length})</option>`).join('');
+ $('#topList').innerHTML=[...R].sort((a,b)=>b.b-a.b).slice(0,50).map(repRow).join('');
+ route();
+}
+
+function countUp(els){
+ if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+ const t0=performance.now(),dur=1400;
+ const tick=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);
+  for(const el of els){const v=+el.dataset.v*e;el.textContent=el.dataset.m==='1'?usd(v):fmt(Math.round(v))}
+  if(k<1)requestAnimationFrame(tick)};
+ requestAnimationFrame(tick);
+}
+
+function startSeis(){
+ const cv=$('#seis');if(!cv)return;const ctx=cv.getContext('2d');
+ const paid=R.filter(r=>r.b>0).sort((a,b)=>a.id-b.id);if(!paid.length)return;
+ const mx=Math.log10(Math.max(...paid.map(r=>r.b))+1);
+ const probe=document.createElement('i');probe.style.display='none';document.body.appendChild(probe);
+ const col=v=>{probe.style.color=`var(${v})`;return getComputedStyle(probe).color||'#888'};
+ const step=4;let off=0,last=performance.now(),W=0,H=0;
+ const still=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ const size=()=>{const d=devicePixelRatio||1;W=cv.clientWidth;H=cv.clientHeight;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0)};
+ const ro=new ResizeObserver(()=>{size();if(still)draw()});ro.observe(cv);size();
+ function draw(){
+  const acc=col('--acc'),sup=col('--sup'),line=col('--line'),ink=col('--ink');
+  ctx.clearRect(0,0,W,H);const mid=H*0.62;
+  ctx.strokeStyle=line;ctx.lineWidth=1;ctx.beginPath();for(let y=H*0.2;y<H;y+=H*0.21){ctx.moveTo(0,y);ctx.lineTo(W,y)}ctx.stroke();
+  const n=Math.ceil(W/step)+2,start=Math.floor(off/step),fx=-(off%step);
+  ctx.lineWidth=1.6;ctx.lineJoin='round';
+  const g=ctx.createLinearGradient(0,0,W,0);g.addColorStop(0,sup);g.addColorStop(1,acc);ctx.strokeStyle=g;
+  ctx.beginPath();
+  let top=null;
+  for(let i=0;i<n;i++){const r=paid[(((start+i)%paid.length)+paid.length)%paid.length],h=(Math.log10(r.b+1)/mx)*(H*0.55),x=fx+i*step,dir=(start+i)%2?1:-0.45;
+   const y=mid-h*dir;i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+   if(x>W*0.7&&x<W-8&&(!top||r.b>top.r.b))top={r,x,y}}
+  ctx.stroke();
+  // scan head
+  ctx.fillStyle=acc;ctx.beginPath();ctx.arc(W-6,mid,3.5,0,7);ctx.fill();
+  if(top&&top.r.b>=1000){ctx.fillStyle=ink;ctx.font='600 12px "JetBrains Mono",monospace';
+   const lbl=usd(top.r.b)+' · '+progs[top.r.p];const tw=Math.min(ctx.measureText(lbl).width,W-20);
+   ctx.fillText(lbl,Math.max(8,Math.min(top.x-tw/2,W-tw-10)),Math.max(14,top.y-8),W-20)}
+ }
+ if(still){draw();return}
+ const loop=t=>{off+=Math.max(0,Math.min(100,t-last))*0.045;last=t;if(document.visibilityState==='visible'&&$('#v-map').classList.contains('on'))draw();requestAnimationFrame(loop)};
+ requestAnimationFrame(loop);
+}
+
+// platforms
+const PCOL={HackerOne:'#3fae74',Bugcrowd:'#d98a3a',Intigriti:'#8f6be0',YesWeHack:'#b8335a'};
+let PL=null,plOn=new Set(Object.keys(PCOL)),plShown=40,plUpd='';
+const CUR={USD:'$',EUR:'€',GBP:'£'};
+const money=(v,c)=>(CUR[c]||c+' ')+Math.round(v).toLocaleString('en-US');
+fetch('programs.json').then(r=>r.json()).then(j=>{
+ plUpd=j[0].updated;const byName=new Map(progs.map((n,i)=>[n.toLowerCase(),i]));
+ PL=j.slice(1).map(r=>({pf:r[0],n:r[1],u:r[2],mn:r[3],mx:r[4],cur:r[5],paid:r[6],t:r[7],s:(r[1]+' '+r[7].map(x=>x[1]).join(' ')).toLowerCase()}));
+ for(const p of PL)if(p.pf==='HackerOne'&&byName.size)p.rp=byName.get(p.n.toLowerCase());
+ initPlat();
+}).catch(()=>{$('#platLede').textContent='The program list could not be loaded. Reload the page to try again.'});
+
+function initPlat(){
+ if(!progs.length){setTimeout(initPlat,200);return}
+ const byName=new Map(progs.map((n,i)=>[n.toLowerCase(),i]));for(const p of PL)if(p.pf==='HackerOne')p.rp=byName.get(p.n.toLowerCase());
+ const tt=PL.reduce((a,p)=>a+p.t.length,0);
+ $('#platLede').innerHTML=`<span class="live"><i></i>Updated ${esc(plUpd)}</span> · ${fmt(PL.length)} public programs and ${fmt(tt)} in-scope targets. Pick a platform card to show or hide it.`;
+ $('#pcards').innerHTML=Object.keys(PCOL).map(k=>{const L=PL.filter(p=>p.pf===k);return `<button class="pc" style="--pc:${PCOL[k]}" data-pf="${k}" aria-pressed="true"><b data-v="${L.length}">${L.length}</b><span>${k} · ${fmt(L.filter(p=>p.paid).length)} pay bounties</span></button>`}).join('');
+ if(location.hash==='#platforms')renderPlat(true);
+}
+
+function renderPlat(anim){
+ if(!PL)return;
+ const q=$('#plQ').value.trim().toLowerCase().split(/\s+/).filter(Boolean),paid=$('#plPaid').checked,so=$('#plSort').value;
+ let L=PL.filter(p=>plOn.has(p.pf)&&(!paid||p.paid)&&q.every(t=>p.s.includes(t)));
+ const usdv=p=>(p.mx||0)*(p.cur==='EUR'?1.08:p.cur==='GBP'?1.27:1);
+ L.sort(so==='t'?(a,b)=>b.t.length-a.t.length:so==='a'?(a,b)=>a.n.localeCompare(b.n):(a,b)=>usdv(b)-usdv(a)||b.paid-a.paid||b.t.length-a.t.length);
+ document.querySelectorAll('.pc').forEach(b=>b.setAttribute('aria-pressed',plOn.has(b.dataset.pf)));
+ if(anim)countUp(document.querySelectorAll('.pc b'));
+ $('#plCount').innerHTML=L.length?`<span class="num">${fmt(L.length)}</span> programs`:'';
+ $('#plList').innerHTML=L.length?L.slice(0,plShown).map(p=>{
+  const pay=p.mx?`<span class="b">${p.mn?money(p.mn,p.cur)+' to ':'Up to '}${money(p.mx,p.cur)}</span>`:p.paid?'<span class="b">Pays bounties</span>':'<span>No bounty</span>';
+  return `<div class="prog"><div class="top"><div><a class="n" href="${esc(p.u)}">${esc(p.n)}</a> <span class="pf" style="--pc:${PCOL[p.pf]}">${p.pf}</span></div><div class="pay num">${pay}</div></div>
+  <div class="meta"><span>${fmt(p.t.length)} in-scope target${p.t.length===1?'':'s'}</span>${p.rp!==undefined?`<button data-p="${p.rp}">${fmt(R.filter(r=>r.p===p.rp).length)} disclosed reports</button>`:''}</div>
+  ${p.t.length?`<details><summary>Show targets</summary><ul class="tg">${p.t.slice(0,150).map(x=>`<li><span>${esc(x[0]||'target')}</span><code>${esc(x[1])}</code></li>`).join('')}${p.t.length>150?`<li><span></span><span>and ${fmt(p.t.length-150)} more on the program page</span></li>`:''}</ul></details>`:''}</div>`}).join(''):'<p class="empty">No programs match. Try another search or turn a platform back on.</p>';
+ $('#plMore').hidden=L.length<=plShown;
+}
+
+function fillWeak(){
+ const list=weak.map((w,i)=>[i,w]).filter(([i,w])=>st.c<0||w[1]===st.c);
+ const cnt=new Map();for(const r of R)if(st.c<0||r.c===st.c)cnt.set(r.w,(cnt.get(r.w)||0)+1);
+ $('#fWeak').innerHTML='<option value="-1">All weaknesses</option>'+list.filter(([i])=>cnt.get(i)).sort((a,b)=>(a[1][0]||'~').localeCompare(b[1][0]||'~')).map(([i,w])=>`<option value="${i}">${esc(w[0]||'No weakness tagged')} (${fmt(cnt.get(i))})</option>`).join('');
+ $('#fWeak').value=st.w;
+}
+
+function repRow(r){
+ return `<li class="rep"><div><a class="t" href="https://hackerone.com/reports/${r.id}">${esc(r.t)}</a>
+ <div class="meta"><button data-p="${r.p}">${esc(progs[r.p])}</button><button data-c="${r.c}"><span class="dot" style="--c:${colors[r.c]}"></span>${esc(classes[r.c])}</button><button data-w="${r.w}">${esc(weak[r.w][0]||'No weakness tagged')}</button><span class="mono">#${r.id}</span></div></div>
+ <div class="amt num">${r.b>0?`<span class="b">${usd(r.b)}</span>`:'<span>No bounty</span>'}<span class="u">${fmt(r.u)} upvotes</span></div></li>`;
+}
+
+function filtered(){
+ const terms=st.q.toLowerCase().split(/\s+/).filter(Boolean);
+ let out=R.filter(r=>(st.c<0||r.c===st.c)&&(st.w<0||r.w===st.w)&&(st.p<0||r.p===st.p)&&terms.every(t=>r.s.includes(t)));
+ const f={b:(a,b)=>b.b-a.b||b.u-a.u,u:(a,b)=>b.u-a.u,n:(a,b)=>b.id-a.id,o:(a,b)=>a.id-b.id}[st.sort];
+ return out.sort(f);
+}
+
+function renderList(){
+ const rs=filtered();
+ $('#fClass').value=st.c;$('#fProg').value=st.p;$('#fSort').value=st.sort;fillWeak();
+ const chips=[];
+ if(st.q)chips.push(['q',`Search: “${esc(st.q)}”`]);
+ if(st.c>=0)chips.push(['c',esc(classes[st.c])]);
+ if(st.w>=0)chips.push(['w',esc(weak[st.w][0]||'No weakness tagged')]);
+ if(st.p>=0)chips.push(['p',esc(progs[st.p])]);
+ $('#chips').innerHTML=chips.map(([k,l])=>`<span class="chip">${l}<button data-x="${k}" aria-label="Remove filter">×</button></span>`).join('');
+ const paid=rs.reduce((s,r)=>s+r.b,0);
+ $('#count').innerHTML=rs.length?`<span class="num">${fmt(rs.length)}</span> reports · <span class="num">${usd(paid)}</span> in bounties`:'';
+ $('#list').innerHTML=rs.length?rs.slice(0,st.shown).map(repRow).join(''):'<li class="empty">No reports match. Try a shorter search or clear a filter.</li>';
+ $('#moreBtn').hidden=rs.length<=st.shown;
+}
+
+let progAll=false;
+function renderProgs(){
+ const s=$('#pSort').value;
+ const P=[..._P].sort(s==='b'?(a,b)=>b.b-a.b:s==='a'?(a,b)=>a.n.localeCompare(b.n):(a,b)=>b.count-a.count);
+ $('#progBody').innerHTML=P.slice(0,progAll?P.length:60).map(p=>{const top=[...p.cl].sort((a,b)=>b[1]-a[1])[0];
+  return `<tr><td><button class="lnk" data-p="${p.i}">${esc(p.n)}</button></td><td class="r num">${fmt(p.count)}</td><td class="r num">${usd(p.b)}</td><td><span class="dot" style="--c:${colors[top[0]]}"></span>${esc(classes[top[0]])}</td></tr>`}).join('');
+ $('#progMore').hidden=progAll||P.length<=60;
+}
+
+let cveShown=50;
+function renderCves(){
+ const q=$('#cveQ').value.trim().toLowerCase(),y=+$('#cveYear').value,s=$('#cveSort').value;
+ const terms=q.split(/\s+/).filter(Boolean);
+ let L=_CV.filter(c=>(!y||c.y===y)&&terms.every(t=>c.id.toLowerCase().includes(t)||c.rs.some(r=>r.s.includes(t))));
+ L.sort(s==='r'?(a,b)=>b.rs.length-a.rs.length||b.y-a.y:s==='b'?(a,b)=>b.b-a.b:(a,b)=>b.y-a.y||b.n-a.n);
+ $('#cveCount').innerHTML=L.length?`<span class="num">${fmt(L.length)}</span> CVEs`:'';
+ $('#cveList').innerHTML=L.length?L.slice(0,cveShown).map(c=>`<div class="cve"><div><h3><a href="https://nvd.nist.gov/vuln/detail/${c.id}">${c.id}</a></h3><div class="sub">${c.rs.length} report${c.rs.length>1?'s':''}${c.b>0?` · <span class="num">${usd(c.b)}</span> paid`:''}</div></div>
+ <ul>${c.rs.map(r=>`<li><a href="https://hackerone.com/reports/${r.id}">${esc(r.t)}</a><span class="amt num">${r.b>0?`<span class="b">${usd(r.b)}</span>`:''}</span><div class="meta"><button data-p="${r.p}">${esc(progs[r.p])}</button><button data-c="${r.c}"><span class="dot" style="--c:${colors[r.c]}"></span>${esc(classes[r.c])}</button><span class="mono">#${r.id}</span></div></li>`).join('')}</ul></div>`).join(''):'<p class="empty">No CVEs match. Try another ID or clear the year.</p>';
+ $('#cveMore').hidden=L.length<=cveShown;
+}
+function go(f){Object.assign(st,{c:-1,w:-1,p:-1,shown:100},f);if(location.hash!=='#browse')location.hash='browse';else renderList();scrollTo(0,0)}
+
+function route(){
+ const v=views.includes(location.hash.slice(1))?location.hash.slice(1):'map';
+ for(const x of views)$('#v-'+x).classList.toggle('on',x===v);
+ document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+v));
+ if(v==='browse'&&R.length)renderList();
+ if(v==='cves'&&R.length)renderCves();
+ if(v==='platforms')renderPlat(true);
+}
+addEventListener('hashchange',route);
+
+document.addEventListener('click',e=>{
+ const b=e.target.closest('button');if(!b)return;
+ if(b.dataset.x){st[b.dataset.x]=b.dataset.x==='q'?'':-1;if(b.dataset.x==='q')$('#q').value='';if(b.dataset.x==='c')st.w=-1;st.shown=100;renderList();return}
+ if(b.dataset.w!==undefined){const w=+b.dataset.w;go({w,c:weak[w][1],q:st.q});return}
+ if(b.dataset.c!==undefined){go({c:+b.dataset.c,q:st.q});return}
+ if(b.dataset.p!==undefined){go({p:+b.dataset.p,q:st.q});return}
+});
+$('#fClass').onchange=e=>{st.c=+e.target.value;st.w=-1;st.shown=100;renderList()};
+$('#fWeak').onchange=e=>{st.w=+e.target.value;st.shown=100;renderList()};
+$('#fProg').onchange=e=>{st.p=+e.target.value;st.shown=100;renderList()};
+$('#fSort').onchange=e=>{st.sort=e.target.value;st.shown=100;renderList()};
+$('#fReset').onclick=()=>{Object.assign(st,{c:-1,w:-1,p:-1,q:'',shown:100});$('#q').value='';renderList()};
+$('#moreBtn').onclick=()=>{st.shown+=100;renderList()};
+$('#pSort').onchange=renderProgs;
+let cqt;$('#cveQ').addEventListener('input',()=>{clearTimeout(cqt);cqt=setTimeout(()=>{cveShown=50;renderCves()},150)});
+$('#pcards').addEventListener('click',e=>{const b=e.target.closest('.pc');if(!b)return;const k=b.dataset.pf;if(plOn.has(k)){if(plOn.size>1)plOn.delete(k)}else plOn.add(k);plShown=40;renderPlat()});
+let pqt;$('#plQ').addEventListener('input',()=>{clearTimeout(pqt);pqt=setTimeout(()=>{plShown=40;renderPlat()},180)});
+$('#plSort').onchange=()=>{plShown=40;renderPlat()};$('#plPaid').onchange=()=>{plShown=40;renderPlat()};
+$('#plMore').onclick=()=>{plShown+=40;renderPlat()};
+$('#cveYear').onchange=()=>{cveShown=50;renderCves()};$('#cveSort').onchange=()=>{cveShown=50;renderCves()};
+$('#cveMore').onclick=()=>{cveShown+=50;renderCves()};
+$('#progMore').onclick=()=>{progAll=true;renderProgs()};
+let qt;
+$('#q').addEventListener('input',e=>{clearTimeout(qt);qt=setTimeout(()=>{st.q=e.target.value.trim();st.shown=100;if(location.hash!=='#browse')location.hash='browse';else renderList()},180)});
+document.addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='SELECT'){e.preventDefault();$('#q').focus()}});
+const tip=$('#tip');
+$('#strata').addEventListener('pointermove',e=>{const s=e.target.closest('.seam');if(!s){tip.style.display='none';return}
+ const w=+s.dataset.w;tip.innerHTML=`<b>${esc(weak[w][0]||'No weakness tagged')}</b><br>${fmt(+s.dataset.n)} reports`;tip.style.display='block';
+ const x=Math.min(e.clientX+14,innerWidth-tip.offsetWidth-8);tip.style.left=x+'px';tip.style.top=(e.clientY+16)+'px'});
+$('#strata').addEventListener('pointerleave',()=>tip.style.display='none');
+route();
+
+// background: slow drifting strata lines with a few rising sparks
+(function bg(){
+ const cv=$('#bg'),ctx=cv.getContext('2d');let W=0,H=0,d=1;
+ const pr=document.createElement('i');pr.style.display='none';document.body.appendChild(pr);
+ const col=v=>{pr.style.color=`var(${v})`;return getComputedStyle(pr).color};
+ const rgba=(c,a)=>{const m=c.match(/[\d.]+/g)||[128,128,128];return `rgba(${m[0]},${m[1]},${m[2]},${a})`};
+ const size=()=>{d=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0)};
+ addEventListener('resize',size);size();
+ const N=9,sparks=Array.from({length:26},()=>({x:Math.random(),y:Math.random(),v:.00004+Math.random()*.00008,r:1+Math.random()*1.8}));
+ const still=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ function draw(t){
+  const acc=col('--acc'),sup=col('--sup'),dark=matchMedia('(prefers-color-scheme: dark)').matches&&document.documentElement.dataset.theme!=='light'||document.documentElement.dataset.theme==='dark';
+  const a=dark?0.26:0.2;
+  ctx.clearRect(0,0,W,H);
+  for(let i=0;i<N;i++){
+   const k=i/(N-1),base=H*(0.08+k*0.9),amp=18+i*4,ph=t*0.00012*(1+i*0.12)+i*1.7;
+   ctx.beginPath();
+   for(let x=0;x<=W+20;x+=20){
+    const y=base+Math.sin(x*0.0035+ph)*amp+Math.sin(x*0.011-ph*1.6)*amp*0.25;
+    x?ctx.lineTo(x,y):ctx.moveTo(x,y)}
+   ctx.strokeStyle=rgba(i%3===2?acc:sup,a*(0.55+0.45*Math.sin(ph*0.7+i)**2));
+   ctx.lineWidth=i%3===2?1.6:1;ctx.stroke();
+  }
+  for(const p of sparks){
+   if(!still){p.y-=p.v*16;if(p.y<-0.02){p.y=1.02;p.x=Math.random()}}
+   ctx.beginPath();ctx.arc(p.x*W,p.y*H,p.r,0,7);ctx.fillStyle=rgba(acc,dark?0.45:0.3);ctx.fill();
+  }
+ }
+ if(still){draw(0);addEventListener('resize',()=>draw(0));return}
+ const loop=t=>{if(document.visibilityState==='visible')draw(t);requestAnimationFrame(loop)};
+ requestAnimationFrame(loop);
+})();
+}
+</script>
+</body>
+</html>
